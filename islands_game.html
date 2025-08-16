@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Eilanden – 3D bol (responsive)</title>
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f172a; --stroke:#9ca3af;
+      --start:#f59e0b; --finish:#22c55e; --line:#38bdf8;
+    }
+    html,body{height:100%;}
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:#fff;overflow:hidden}
+    canvas#game{position:fixed;inset:0;background:#08101e;display:block;touch-action:none}
+    .hud{position:fixed;left:12px;top:12px;z-index:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(15,23,42,.7);backdrop-filter:blur(6px);border:1px solid #334155;border-radius:12px;padding:8px 10px}
+    .hud label{font-size:12px;opacity:.85;margin-right:4px}
+    .hud select,.hud button{background:#0f172a;color:#fff;border:1px solid #334155;border-radius:8px;padding:6px 10px}
+    .hud button{cursor:pointer}
+    .hint{position:fixed;left:12px;bottom:12px;z-index:2;background:rgba(15,23,42,.7);border:1px solid #334155;border-radius:10px;padding:6px 10px;font-size:12px;opacity:.9}
+    #message{position:fixed;right:12px;top:12px;z-index:2;font-size:20px;font-weight:800;text-align:center;background:rgba(15,23,42,.8);border:1px solid #334155;border-radius:10px;padding:8px 12px;display:none}
+    #message.success{color:red;}
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <label for="difficulty">Moeilijkheid</label>
+    <select id="difficulty">
+      <option value="0">1</option>
+      <option value="1">2</option>
+      <option value="2" selected>3</option>
+      <option value="3">4</option>
+      <option value="4">5</option>
+    </select>
+
+    <label for="layout">Layout</label>
+    <select id="layout">
+      <option value="random" selected>Willekeurig</option>
+      <option value="grid">Raster (geprojecteerd)</option>
+    </select>
+
+    <button id="regen">Nieuw bord</button>
+    <button id="check">Controleer pad</button>
+  </div>
+  <div class="hint">Draai met slepen (muis/touch). Pinch of scroll om te zoomen. Tik/klik twee eilanden om een verbinding te (de)selecteren.</div>
+  <div id="message"></div>
+  <canvas id="game"></canvas>
+<script>
+// ---------- Config ----------
+const COLS=8,ROWS=5,NODE_COUNT=COLS*ROWS,MAX_DEGREE=5;
+let ISLAND_R=14; // wordt dynamisch meegeschaald
+const COLORS={veerboot:'green',vliegtuig:'blue',zeppelin:'red',zeilboot:'white'};
+const TYPES=['veerboot','vliegtuig','zeppelin','zeilboot'];
+
+// ---------- State ----------
+let nodes=[],edges=[]; // nodes in sferische coördinaten
+let firstSelectedNode=null;
+let yaw=0, pitch=0; // rad
+let scale=250; // px per bolradius; wordt bij resize gezet
+let isDragging=false, lastX=0, lastY=0;
+let pinchActive=false, lastPinchDist=0;
+let viewW=0, viewH=0, centerX=0, centerY=0;
+
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+
+// device pixel ratio aware resize
+function resizeCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  viewW = window.innerWidth; viewH = window.innerHeight;
+  canvas.style.width = viewW + 'px'; canvas.style.height = viewH + 'px';
+  canvas.width = Math.max(1, Math.floor(viewW * dpr));
+  canvas.height = Math.max(1, Math.floor(viewH * dpr));
+  // set transform so we can draw in CSS pixels
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  centerX = viewW/2; centerY = viewH/2;
+  scale = Math.min(viewW, viewH) * 0.42; // bol straal in CSS pixels
+  ISLAND_R = Math.max(10, Math.round(Math.min(viewW, viewH) * 0.03));
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// pool met alle unieke (type,letter)-combi's, elk exact 1x toegestaan
+let comboPool=[];
+function refillComboPool(){
+  comboPool=[]; const letters=[...Array(26)].map((_,i)=>String.fromCharCode(65+i));
+  for(const t of TYPES){ for(const L of letters){ comboPool.push({type:t,letter:L}); } }
+  for(let i=comboPool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[comboPool[i],comboPool[j]]=[comboPool[j],comboPool[i]];}
+}
+function nextCombo(){ if(comboPool.length===0) refillComboPool(); return comboPool.pop(); }
+
+// ---------- Math helpers ----------
+function sphToVec(lat,lon){ const cl=Math.cos(lat), sl=Math.sin(lat); const co=Math.cos(lon), so=Math.sin(lon); return {x:cl*co, y:sl, z:cl*so}; }
+function rotateVec(v){ const cy=Math.cos(yaw), sy=Math.sin(yaw); const cp=Math.cos(pitch), sp=Math.sin(pitch); const x1 = cy*v.x + sy*v.z; const z1 = -sy*v.x + cy*v.z; const y2 = cp*v.y - sp*z1; const z2 = sp*v.y + cp*z1; return {x:x1, y:y2, z:z2}; }
+function project(v){ return {x: v.x*scale + centerX, y: -v.y*scale + centerY, z:v.z}; }
+
+// ---------- Node generation on sphere ----------
+function setupNodes(layout){
+  nodes=[];
+  if(layout==='grid'){
+    for(let r=0;r<ROWS;r++){
+      const lat = (60 - r*(120/(ROWS-1))) * Math.PI/180;
+      for(let c=0;c<COLS;c++){
+        const lon = (-150 + c*(300/(COLS-1))) * Math.PI/180;
+        nodes.push({id:r*COLS+c, lat, lon});
+      }
+    }
+  } else {
+    const minAngle = 18 * Math.PI/180; // ~18°
+    while(nodes.length<NODE_COUNT){
+      const u=Math.random(); const v=Math.random();
+      const lat=Math.asin(2*u-1); const lon=2*Math.PI*v - Math.PI;
+      const cand={id:nodes.length, lat, lon};
+      const ok = nodes.every(n=> angleBetween(cand, n) >= minAngle);
+      if(ok) nodes.push(cand);
+    }
+  }
+}
+function angleBetween(a,b){ const va=sphToVec(a.lat,a.lon), vb=sphToVec(b.lat,b.lon); const dot=va.x*vb.x+va.y*vb.y+va.z*vb.z; return Math.acos(Math.min(1,Math.max(-1,dot))); }
+
+// Edge helpers
+const edgeSet=new Set();
+function edgeKey(a,b){return a<b?`${a}-${b}`:`${b}-${a}`}
+function addEdgeUnique(a,b){
+  const key=edgeKey(a,b); if(edgeSet.has(key)||a===b) return false;
+  const degA=edges.filter(e=>e.a===a||e.b===a).length; const degB=edges.filter(e=>e.a===b||e.b===b).length;
+  if(degA>=MAX_DEGREE||degB>=MAX_DEGREE) return false;
+  const {type,letter}=nextCombo(); edges.push({a,b,selected:false,type,letter}); edgeSet.add(key); return true;
+}
+function manhattanOnGrid(a,b){ const ar=Math.floor(a/COLS), ac=a%COLS; const br=Math.floor(b/COLS), bc=b%COLS; return Math.abs(ar-br)+Math.abs(ac-bc); }
+
+function createGuaranteedPath(){
+  let cur=0, target=NODE_COUNT-1; const visited=new Set([0]);
+  while(cur!==target){
+    const ar=Math.floor(cur/COLS), ac=cur%COLS; const neigh=[];
+    [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{ const nr=ar+dr, nc=ac+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS){const nid=nr*COLS+nc; if(!visited.has(nid)) neigh.push(nid);} });
+    if(neigh.length===0){ [[0,1],[1,0],[0,-1],[-1,0]].forEach(([dr,dc])=>{ const nr=ar+dr, nc=ac+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS){neigh.push(nr*COLS+nc);} }); }
+    neigh.sort((a,b)=>manhattanOnGrid(a,target)-manhattanOnGrid(b,target));
+    const pick=neigh[Math.floor(Math.random()*Math.min(3,neigh.length))];
+    addEdgeUnique(cur,pick); visited.add(pick); cur=pick; if(visited.size>NODE_COUNT*4) break;
+  }
+}
+function addRandomEdges(n){ const all=[]; for(let i=0;i<NODE_COUNT;i++) for(let j=i+1;j<NODE_COUNT;j++) all.push([i,j]); all.sort((p,q)=>manhattanOnGrid(p[0],p[1])-manhattanOnGrid(q[0],q[1])); let added=0; for(const [a,b] of all){ if(added>=n) break; if(addEdgeUnique(a,b)) added++; } }
+
+function generate(diff,layout){ edges=[]; edgeSet.clear(); refillComboPool(); setupNodes(layout); createGuaranteedPath(); const extraByDiff=[12,20,30,45,70]; addRandomEdges(extraByDiff[diff]); draw(); document.getElementById('message').style.display='none'; }
+
+// ---------- Rendering on globe ----------
+function nodeScreenPos(node){ const v = sphToVec(node.lat,node.lon); const vr = rotateVec(v); return project(vr); }
+
+function drawGlobeBase(){ const r=scale; ctx.save(); // clear area using CSS pixels
+  ctx.clearRect(0,0,viewW,viewH);
+  // globe disk
+  const grd=ctx.createRadialGradient(centerX-0.35*r,centerY-0.35*r,0, centerX,centerY,r);
+  grd.addColorStop(0,'#0f213b'); grd.addColorStop(1,'#08101e'); ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(centerX,centerY,r,0,Math.PI*2); ctx.fill();
+  // faint rim
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(14,165,233,0.12)'; ctx.stroke(); ctx.restore(); }
+
+function draw(){ drawGlobeBase(); // selected edges as great circles
+  ctx.lineWidth=3; ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line')||'#38bdf8';
+  edges.forEach(e=>{ if(e.selected) drawGreatCircle(e.a,e.b); });
+  // islands (front side only)
+  for(const n of nodes){ const p=nodeScreenPos(n); if(p.z<=0) continue; drawIsland(n,p); }
+}
+
+function drawIsland(n,p){ ctx.beginPath(); ctx.arc(p.x,p.y,ISLAND_R,0,Math.PI*2); ctx.fillStyle='#000'; ctx.fill(); ctx.lineWidth=(n.id===0||n.id===NODE_COUNT-1)?3:2; ctx.strokeStyle=(n.id===0)?'#f59e0b':(n.id===NODE_COUNT-1)?'#22c55e':'#94a3b8'; ctx.stroke(); const related=edges.filter(e=>e.a===n.id||e.b===n.id); ctx.textAlign='center'; ctx.font='bold '+Math.max(12,Math.round(ISLAND_R*0.6))+'px monospace'; if(related.length===1){ const e=related[0]; drawLabel(p.x, p.y+Math.round(ISLAND_R*0.18), e.letter, COLORS[e.type]); } else if(related.length>1){ related.forEach((e,idx)=>{ const colOff=(idx%2===0)?-ISLAND_R*0.35:ISLAND_R*0.35; const rowOff=(Math.floor(idx/2)-((Math.ceil(related.length/2)-1)/2))* (ISLAND_R*0.6/Math.max(1,Math.ceil(related.length/2)) * 1.2); drawLabel(p.x+colOff, p.y+rowOff, e.letter, COLORS[e.type]); }); } }
+
+function drawLabel(x,y,text,color){ ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineJoin='round'; ctx.miterLimit=2; ctx.strokeText(text,x,y); ctx.fillStyle=color; ctx.fillText(text,x,y); }
+
+function drawGreatCircle(aIdx,bIdx){ const a=nodes[aIdx], b=nodes[bIdx]; const va=sphToVec(a.lat,a.lon), vb=sphToVec(b.lat,b.lon); const dot=va.x*vb.x+va.y*vb.y+va.z*vb.z; const omega=Math.acos(Math.min(1,Math.max(-1,dot))); const steps=48; let first=true; ctx.beginPath(); for(let i=0;i<=steps;i++){ const t=i/steps; let s1= Math.sin((1-t)*omega), s2=Math.sin(t*omega); const s= Math.sin(omega)||1e-6; const vx=(s1*va.x + s2*vb.x)/s, vy=(s1*va.y + s2*vb.y)/s, vz=(s1*va.z + s2*vb.z)/s; const pr = project(rotateVec({x:vx,y:vy,z:vz})); if(pr.z<=0){ first=true; continue; } if(first){ ctx.moveTo(pr.x,pr.y); first=false; } else { ctx.lineTo(pr.x,pr.y); } } ctx.stroke(); }
+
+// ---------- Interaction ----------
+canvas.addEventListener('mousedown',e=>{ isDragging=true; lastX=e.clientX; lastY=e.clientY; });
+canvas.addEventListener('mousemove',e=>{ if(!isDragging) return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; const sens=0.005; yaw+=dx*sens; pitch+=dy*sens; pitch=Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, pitch)); draw(); });
+window.addEventListener('mouseup',()=>{ isDragging=false; });
+
+// Touch gestures
+canvas.addEventListener('touchstart',e=>{ if(e.touches.length===1){ isDragging=true; pinchActive=false; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; } else if(e.touches.length===2){ isDragging=false; pinchActive=true; lastPinchDist=distTouches(e.touches[0],e.touches[1]); } }, {passive:false});
+canvas.addEventListener('touchmove',e=>{ if(pinchActive && e.touches.length===2){ e.preventDefault(); const d=distTouches(e.touches[0],e.touches[1]); if(d>0&&lastPinchDist>0){ const factor=d/lastPinchDist; zoomBy(factor); lastPinchDist=d; } } else if(isDragging && e.touches.length===1){ e.preventDefault(); const t=e.touches[0]; const dx=t.clientX-lastX, dy=t.clientY-lastY; lastX=t.clientX; lastY=t.clientY; const sens=0.005; yaw+=dx*sens; pitch+=dy*sens; pitch=Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, pitch)); draw(); } }, {passive:false});
+canvas.addEventListener('touchend',e=>{ if(e.touches.length===0){ isDragging=false; pinchActive=false; } });
+function distTouches(a,b){ return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY); }
+
+// Wheel zoom
+canvas.addEventListener('wheel',e=>{ e.preventDefault(); const k = Math.pow(1.1, -Math.sign(e.deltaY)); zoomBy(k); }, {passive:false});
+function zoomBy(factor){ const minScale = Math.min(viewW,viewH)*0.25; const maxScale = Math.min(viewW,viewH)*0.8; scale = Math.max(minScale, Math.min(maxScale, scale*factor)); ISLAND_R = Math.max(10, Math.round(Math.min(viewW,viewH) * 0.03 * (scale/(Math.min(viewW,viewH)*0.42)))); draw(); }
+
+// Click selection
+canvas.addEventListener('click',ev=>{ const rect=canvas.getBoundingClientRect(); const x=ev.clientX-rect.left, y=ev.clientY-rect.top; let bestId=null, bestD=1e9; nodes.forEach(n=>{ const p=nodeScreenPos(n); if(p.z<=0) return; const d=Math.hypot(p.x-x,p.y-y); if(d<bestD){bestD=d; bestId=n.id;} }); if(bestD>ISLAND_R+6 || bestId==null) return; if(firstSelectedNode===null){ firstSelectedNode=bestId; } else { const a=firstSelectedNode, b=bestId; firstSelectedNode=null; toggleEdge(a,b); } });
+function toggleEdge(a,b){ const edge=edges.find(e=> (e.a===a&&e.b===b)||(e.a===b&&e.b===a)); const msg=document.getElementById('message'); if(edge){ edge.selected=!edge.selected; msg.style.display='none'; draw(); } else { msg.textContent='Geen verbinding tussen deze twee eilanden.'; msg.className=''; msg.style.display='block'; } }
+
+// ---------- Path check ----------
+function buildAdjSelected(){ const adj=Array(NODE_COUNT).fill(0).map(()=>new Set()); edges.forEach(e=>{ if(e.selected){ adj[e.a].add(e.b); adj[e.b].add(e.a); } }); return adj; }
+function isConnected(){ const adj=buildAdjSelected(),start=0,goal=NODE_COUNT-1; let q=[start],vis=new Set([start]); while(q.length){ let u=q.shift(); if(u===goal) return true; for(const v of adj[u]){ if(!vis.has(v)){ vis.add(v); q.push(v); } } } return false; }
+function checkPath(){ const msg=document.getElementById('message'); if(isConnected()){ msg.textContent='GEFELICITEERD — ROUTE COMPLEET!'; msg.className='success'; msg.style.display='block'; } else { msg.textContent='Geen volledige route.'; msg.className=''; msg.style.display='block'; } }
+
+// ---------- Controls ----------
+document.getElementById('regen').onclick=()=>{ generate(parseInt(document.getElementById('difficulty').value),document.getElementById('layout').value); };
+document.getElementById('check').onclick=checkPath;
+document.getElementById('difficulty').addEventListener('change',()=>{ generate(parseInt(document.getElementById('difficulty').value),document.getElementById('layout').value); });
+document.getElementById('layout').addEventListener('change',()=>{ generate(parseInt(document.getElementById('difficulty').value),document.getElementById('layout').value); });
+
+// ---------- Init ----------
+function start(){ refillComboPool(); resizeCanvas(); // small delay so CSS computed sizes are stable on some devices
+  setTimeout(()=>{ generate(2,'random'); }, 20);
+}
+start();
+</script>
+</body>
+</html>

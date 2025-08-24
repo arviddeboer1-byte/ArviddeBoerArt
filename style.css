@@ -54,7 +54,8 @@ footer {
 }
 
 .footer-logo {
-  height: 24px;       /* pas aan naar wens */
+  height: 40px;       /* pas aan naar wens */
+  width: auto;
   vertical-align: middle;
   margin-left: 8px;   /* ruimte tussen tekst en logo */
 }

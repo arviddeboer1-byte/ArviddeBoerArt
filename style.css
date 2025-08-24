@@ -52,3 +52,14 @@ footer {
   color: #fff;
   margin-top: 20px;
 }
+
+.footer-logo {
+  height: 24px;       /* pas aan naar wens */
+  vertical-align: middle;
+  margin-left: 8px;   /* ruimte tussen tekst en logo */
+}
+
+
+
+
+

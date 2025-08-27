@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mijn Website</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Extra styling voor de knop */
+    .game-button {
+      display: inline-block;
+      padding: 12px 24px;
+      margin: 20px 0;
+      background-color: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+
+    .game-button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Leer abstract schilderen!</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="workshopkalender.html">Volgende stap: leg de datum vast in de ArviddeBoerArt workshop kalender</a>
+    </nav>
+  </header>
+
+  <main>
+    
+    <section id="projecten">
+      <h2>Vind en reserveer een geschikte ruimte</h2>
+      <p>We geven alleen workshops op locaties die voldoen aan de volgende voorwaarden:</p>
+      <p>- de ruimte is gereserveerd op een van de beschikbare datums uit de ArviddeBoerArt workshop kalender.</p>      
+      <p>- de ruimte is beschikbaar van 14:00 tot 18:00 .</p>
+      <p>- de ruimte is groot genoeg voor de complete groep: elke deelnemer moet minimaal een werkruimte hebben van 3 vierkante meter.</p>
+      <p>- er is/zijn een werktafel(s) aanwezig waarop verfdoeken/verfspullen/mini-ezels etc. kunnen worden geplaatst.</p>
+      <p>- er is stromend water voor de groep beschikbaar binnen een straal van 20 meter. Zo niet, overleg dan even met ons wat de mogelijkheden zijn.</p>
+      <p>- er is toestemming gegeven door de eigenaar van de ruimte om een schilderworkshop te houden.</p>
+      <p>- gaat het om een buitenlocatie? Overleg dan ook altijd even met ons in verband met het weer en andere aspecten.</p>   
+      <p>- de locatie is doorgegeven aan ons.</p>     
+    </section>
+    
+
+    <section id="contact">
+      <h2>Contact</h2>
+      <p>Je kunt mij bereiken via <a href="mailto:arviddeboer1@gmail.com">mail</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2025 ArviddeBoerArt</p>
+  </footer>
+</body>
+</html>

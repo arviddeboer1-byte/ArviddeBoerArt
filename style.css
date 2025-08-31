@@ -21,10 +21,6 @@ header {
   text-align: center;
 }
 
-
-
-
-
 header nav a {
   color: #fff;
   text-decoration: none;
@@ -68,9 +64,6 @@ main {
 .game-button:hover {
   background-color: #0056b3;
 }
-
-
-
 
 /* Footer */
 footer {

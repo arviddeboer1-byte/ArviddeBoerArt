@@ -58,7 +58,7 @@ main {
   border-radius: 8px;
   transition: background-color 0.3s ease;
   text-align: center;
-  width: 400px; /* vaste breedte zodat ze netjes gelijk zijn */
+  width: 300px; /* vaste breedte zodat ze netjes gelijk zijn */
 }
 
 .game-button:hover {

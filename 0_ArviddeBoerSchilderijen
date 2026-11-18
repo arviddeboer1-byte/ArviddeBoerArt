@@ -111,15 +111,15 @@
       Staat index.html in dezelfde GitHub-map als je afbeeldingen? Dan is alleen de bestandsnaam genoeg.
       Staan ze in een submap (bijv. "afbeeldingen")? Gebruik dan: afbeeldingen/foto1.jpg
     -->
-    <div class="tegel"><img src="FlyerBuurthuis v2.png" alt="Afbeelding 1"></div>
-    <div class="tegel"><img src="afbeeldingen/foto2.jpg" alt="Afbeelding 2"></div>
-    <div class="tegel"><img src="afbeeldingen/foto3.jpg" alt="Afbeelding 3"></div>
-    <div class="tegel"><img src="afbeeldingen/foto4.jpg" alt="Afbeelding 4"></div>
-    <div class="tegel"><img src="afbeeldingen/foto5.jpg" alt="Afbeelding 5"></div>
-    <div class="tegel"><img src="afbeeldingen/foto6.jpg" alt="Afbeelding 6"></div>
-    <div class="tegel"><img src="afbeeldingen/foto7.jpg" alt="Afbeelding 7"></div>
-    <div class="tegel"><img src="afbeeldingen/foto8.jpg" alt="Afbeelding 8"></div>
-    <div class="tegel"><img src="afbeeldingen/foto9.jpg" alt="Afbeelding 9"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-211701.jpg" alt="Afbeelding 1"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-211907.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213045.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213138.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213216.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213254.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213326.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213358.jpg"></div>
+    <div class="tegel"><img src="tempFileForShare_20261118-213430.jpg"></div>
   </main>
 
   <!-- Grote weergave -->

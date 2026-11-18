@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mijn fotoraster</title>
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #000;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    /* Het 3x3 raster */
+    .raster {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: min(100%, 900px);
+    }
+
+    /* Elke tegel is vierkant */
+    .tegel {
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      background: #1a1a1a; /* zichtbaar tot de afbeelding geladen is */
+    }
+
+    .tegel img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* vult de tegel, zonder te vervormen */
+      display: block;
+      cursor: zoom-in;
+    }
+
+    /* Grote weergave bij klikken */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.92);
+      cursor: zoom-out;
+      z-index: 10;
+    }
+
+    .lightbox.open {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .pijl {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 12px 16px;
+      border: 0;
+      background: none;
+      color: #fff;
+      font-size: 48px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+
+    .pijl:hover,
+    .pijl:focus-visible {
+      opacity: 1;
+    }
+
+    .pijl.vorige { left: 4px; }
+    .pijl.volgende { right: 4px; }
+
+    .sluiten {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      padding: 8px 12px;
+      border: 0;
+      background: none;
+      color: #fff;
+      font-size: 32px;
+      line-height: 1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="raster">
+    <!--
+      VERVANG de bestandsnamen hieronder door die van jouw afbeeldingen.
+      Staat index.html in dezelfde GitHub-map als je afbeeldingen? Dan is alleen de bestandsnaam genoeg.
+      Staan ze in een submap (bijv. "afbeeldingen")? Gebruik dan: afbeeldingen/foto1.jpg
+    -->
+    <div class="tegel"><img src="afbeeldingen/foto1.jpg" alt="Afbeelding 1"></div>
+    <div class="tegel"><img src="afbeeldingen/foto2.jpg" alt="Afbeelding 2"></div>
+    <div class="tegel"><img src="afbeeldingen/foto3.jpg" alt="Afbeelding 3"></div>
+    <div class="tegel"><img src="afbeeldingen/foto4.jpg" alt="Afbeelding 4"></div>
+    <div class="tegel"><img src="afbeeldingen/foto5.jpg" alt="Afbeelding 5"></div>
+    <div class="tegel"><img src="afbeeldingen/foto6.jpg" alt="Afbeelding 6"></div>
+    <div class="tegel"><img src="afbeeldingen/foto7.jpg" alt="Afbeelding 7"></div>
+    <div class="tegel"><img src="afbeeldingen/foto8.jpg" alt="Afbeelding 8"></div>
+    <div class="tegel"><img src="afbeeldingen/foto9.jpg" alt="Afbeelding 9"></div>
+  </main>
+
+  <!-- Grote weergave -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Grote afbeelding">
+    <button class="sluiten" id="sluiten" aria-label="Sluiten">&times;</button>
+    <button class="pijl vorige" id="vorige" aria-label="Vorige afbeelding">&#8249;</button>
+    <img id="grote-afbeelding" src="" alt="">
+    <button class="pijl volgende" id="volgende" aria-label="Volgende afbeelding">&#8250;</button>
+  </div>
+
+  <script>
+    const lightbox = document.getElementById('lightbox');
+    const grote = document.getElementById('grote-afbeelding');
+    const plaatjes = Array.from(document.querySelectorAll('.tegel img'));
+    let huidige = 0;
+
+    function toon(i) {
+      // Doorlopend: na de laatste volgt weer de eerste
+      huidige = (i + plaatjes.length) % plaatjes.length;
+      grote.src = plaatjes[huidige].src;
+      grote.alt = plaatjes[huidige].alt;
+      lightbox.classList.add('open');
+    }
+
+    function sluit() {
+      lightbox.classList.remove('open');
+      grote.src = '';
+    }
+
+    // Klik op een tegel: toon de afbeelding groot
+    plaatjes.forEach(function (img, i) {
+      img.addEventListener('click', function () { toon(i); });
+    });
+
+    // Pijltjes op het scherm
+    document.getElementById('vorige').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toon(huidige - 1);
+    });
+    document.getElementById('volgende').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toon(huidige + 1);
+    });
+
+    // Klik ergens anders (of op het kruisje): sluiten
+    lightbox.addEventListener('click', sluit);
+
+    // Toetsenbord: pijltjestoetsen en Escape
+    document.addEventListener('keydown', function (e) {
+      if (!lightbox.classList.contains('open')) return;
+      if (e.key === 'Escape') sluit();
+      if (e.key === 'ArrowLeft') toon(huidige - 1);
+      if (e.key === 'ArrowRight') toon(huidige + 1);
+    });
+
+    // Swipen op een telefoon
+    let startX = null;
+    lightbox.addEventListener('touchstart', function (e) {
+      startX = e.touches[0].clientX;
+    }, { passive: true });
+    lightbox.addEventListener('touchend', function (e) {
+      if (startX === null) return;
+      const verschil = e.changedTouches[0].clientX - startX;
+      if (Math.abs(verschil) > 50) toon(huidige + (verschil < 0 ? 1 : -1));
+      startX = null;
+    });
+  </script>
+
+</body>
+</html>
